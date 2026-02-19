@@ -7,7 +7,17 @@ const { PDFDocument, rgb, StandardFonts } = require('pdf-lib');
 const path = require('path');
 
 const app = express();
-app.use(cors());
+// app.use(cors());
+// Configuración de seguridad para aceptar peticiones solo de tu web
+app.use(cors({
+    origin: [
+        'https://cbta228.edu.mx', 
+        'http://cbta228.edu.mx',
+        'http://localhost:5173' // Para pruebas locales
+    ],
+    methods: ['GET', 'POST'],
+    credentials: true
+}));
 app.use(express.json());
 
 // 1. CONEXIÓN DB
@@ -155,11 +165,11 @@ app.get('/api/generar-ficha/:fichaId', (req, res) => {
 
 // --- EL CAMBIO CLAVE PARA EL ERROR QUE TE SALIÓ ---
 // En lugar de '*', usamos '(.*)' que es el formato que aceptan las versiones nuevas
-app.use(express.static(path.join(__dirname, 'dist')));
+// app.use(express.static(path.join(__dirname, 'dist')));
 
-app.get('*', (req, res) => {
-    res.sendFile(path.join(__dirname, 'dist', 'index.html'));
-});
+// app.get('*', (req, res) => {
+//     res.sendFile(path.join(__dirname, 'dist', 'index.html'));
+// });
 
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => {
