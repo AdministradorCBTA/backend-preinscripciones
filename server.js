@@ -2,18 +2,16 @@ require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
 const mysql = require('mysql2');
-const nodemailer = require('nodemailer');
 const { PDFDocument, rgb, StandardFonts } = require('pdf-lib');
-const path = require('path');
 
 const app = express();
-// app.use(cors());
-// Configuración de seguridad para aceptar peticiones solo de tu web
+
+// Configuración de seguridad
 app.use(cors({
     origin: [
         'https://cbta228.edu.mx', 
         'http://cbta228.edu.mx',
-        'http://localhost:5173' // Para pruebas locales
+        'http://localhost:5173'
     ],
     methods: ['GET', 'POST'],
     credentials: true
@@ -27,32 +25,20 @@ const db = mysql.createPool({
     password: process.env.DB_PASSWORD || '',
     database: process.env.DB_NAME || 'preinscripcion_db',
     waitForConnections: true,
-    connectionLimit: 10, // Crea hasta 10 conexiones simultáneas si hay mucha gente
+    connectionLimit: 10,
     queueLimit: 0
 });
 
-// Para comprobar que el pool funciona al arrancar
 db.getConnection((err, connection) => {
     if (err) {
         console.error('🔥 Error al conectar al Pool DB:', err);
     } else {
         console.log('✅ Conectado exitosamente al Pool de MySQL.');
-        connection.release(); // Soltamos la conexión para que quede libre
+        connection.release();
     }
 });
 
-// 2. TRANSPORTE CORREO (CORREGIDO Y OPTIMIZADO)
-const transporter = nodemailer.createTransport({
-    host: 'smtp.gmail.com',
-    port: 465,
-    secure: true,
-    auth: {
-        user: process.env.EMAIL_USER,
-        pass: process.env.EMAIL_PASS
-    }
-});
-
-// FUNCIÓN AUXILIAR PDF (Para no repetir código)
+// 2. FUNCIÓN AUXILIAR PDF
 async function generarBytesPDF(data, id) {
     const pdfDoc = await PDFDocument.create();
     const page = pdfDoc.addPage();
@@ -117,7 +103,7 @@ async function generarBytesPDF(data, id) {
     return await pdfDoc.save();
 }
 
-// 3. RUTAS API (CON LINTERNAS DE ERRORES)
+// 3. RUTAS API (LIMPIAS, SIN CORREO)
 app.post('/api/preinscripcion', (req, res) => {
     const formData = req.body;
 
@@ -133,25 +119,13 @@ app.post('/api/preinscripcion', (req, res) => {
 
         db.query(sql, values, async (err, result) => {
             if (err) {
-                console.error("🔥 ERROR AL INSERTAR EN DB:", err); // ¡Aquí estaba el error oculto!
+                console.error("🔥 ERROR AL INSERTAR EN DB:", err);
                 return res.status(500).json({ message: 'Error al registrar.' });
             }
             
             const fichaId = result.insertId;
-            try {
-                const pdfBytes = await generarBytesPDF(formData, fichaId);
-                await transporter.sendMail({
-                    from: process.env.EMAIL_USER,
-                    to: formData.correo,
-                    subject: `Ficha de Registro #${fichaId}`,
-                    html: `<p>Hola ${formData.nombre}, adjuntamos tu ficha de pre-registro.</p>`,
-                    attachments: [{ filename: `ficha_${fichaId}.pdf`, content: Buffer.from(pdfBytes) }]
-                });
-                res.status(200).json({ message: 'Éxito', fichaId });
-            } catch (e) {
-                console.error("🔥 ERROR EN CORREO O PDF:", e);
-                res.status(200).json({ message: 'Registrado, pero el correo falló.', fichaId });
-            }
+            // ¡Adiós Nodemailer! Solo respondemos que todo fue un éxito al instante
+            res.status(200).json({ message: 'Éxito', fichaId });
         });
     });
 });
@@ -177,14 +151,6 @@ app.get('/api/generar-ficha/:fichaId', (req, res) => {
         }
     });
 });
-
-// --- EL CAMBIO CLAVE PARA EL ERROR QUE TE SALIÓ ---
-// En lugar de '*', usamos '(.*)' que es el formato que aceptan las versiones nuevas
-// app.use(express.static(path.join(__dirname, 'dist')));
-
-// app.get('*', (req, res) => {
-//     res.sendFile(path.join(__dirname, 'dist', 'index.html'));
-// });
 
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => {
