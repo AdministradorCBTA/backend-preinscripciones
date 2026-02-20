@@ -33,9 +33,11 @@ db.connect(err => {
     console.log('Conectado a MySQL.');
 });
 
-// 2. TRANSPORTE CORREO
+// 2. TRANSPORTE CORREO (CORREGIDO Y OPTIMIZADO)
 const transporter = nodemailer.createTransport({
-    service: 'gmail',
+    host: 'smtp.gmail.com',
+    port: 465,
+    secure: true,
     auth: {
         user: process.env.EMAIL_USER,
         pass: process.env.EMAIL_PASS
@@ -49,25 +51,20 @@ async function generarBytesPDF(data, id) {
     const font = await pdfDoc.embedFont(StandardFonts.Helvetica);
     const boldFont = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
     
-    // Colores
-    const headerColor = rgb(0, 0.53, 0.71); // Azul bonito
+    const headerColor = rgb(0, 0.53, 0.71); 
     const black = rgb(0, 0, 0);
 
-    // Configuración inicial
-    let y = 750; // Posición vertical inicial (se irá restando para bajar)
+    let y = 750; 
     const xLabel = 50;
     const xValue = 200;
-    const step = 20; // Espacio entre líneas
+    const step = 20; 
 
-    // Título Principal
     page.drawText('FICHA DE PRE-REGISTRO CBTA 228', { x: 50, y, font: boldFont, size: 18, color: headerColor });
     page.drawText(`Folio No: ${id}`, { x: 400, y, font: boldFont, size: 14, color: rgb(1, 0, 0) });
     y -= 40;
 
-    // Función auxiliar para dibujar líneas
     const drawField = (label, value) => {
         page.drawText(label, { x: xLabel, y, font: boldFont, size: 10, color: black });
-        // Aseguramos que el valor sea texto y manejamos vacíos
         const textValue = value ? String(value) : 'N/A';
         page.drawText(textValue, { x: xValue, y, font, size: 10, color: black });
         y -= step;
@@ -79,7 +76,6 @@ async function generarBytesPDF(data, id) {
         y -= 25;
     };
 
-    // --- SECCIÓN 1: DATOS DEL ASPIRANTE ---
     drawSectionHeader('DATOS PERSONALES');
     drawField('Nombre Completo:', `${data.nombre} ${data.apellidoPaterno} ${data.apellidoMaterno}`);
     drawField('CURP:', data.curp);
@@ -89,51 +85,49 @@ async function generarBytesPDF(data, id) {
     drawField('Correo Electrónico:', data.correo);
     drawField('Teléfono Móvil:', data.telefono);
 
-    // --- SECCIÓN 2: DIRECCIÓN ---
     drawSectionHeader('DOMICILIO');
     drawField('Calle y Número:', `${data.calle} #${data.numeroExterior} ${data.numeroInterior ? 'Int. ' + data.numeroInterior : ''}`);
     drawField('Colonia:', data.colonia);
     drawField('Municipio / Estado:', `${data.municipio}, ${data.estado}`);
     drawField('Código Postal:', data.codigoPostal);
 
-    // --- SECCIÓN 3: PROCEDENCIA ---
     drawSectionHeader('DATOS ACADÉMICOS (SECUNDARIA)');
     drawField('Nombre Secundaria:', data.nombreSecundaria);
     drawField('Tipo / Sostenimiento:', `${data.tipoSecundaria} - ${data.sostenimiento}`);
     drawField('Localidad Secundaria:', data.localidadSecundaria);
     drawField('Promedio General:', String(data.promedio));
 
-    // --- SECCIÓN 4: TUTOR ---
     drawSectionHeader('DATOS DEL TUTOR');
     drawField('Nombre del Tutor:', data.nombreTutor);
     drawField('Ocupación:', data.ocupacionTutor);
     drawField('Teléfono del Tutor:', data.telefonoTutor);
 
-    // Pie de página
     page.drawText('Este documento es un comprobante de pre-registro. Presentarlo en servicios escolares.', {
-        x: 50,
-        y: 50,
-        size: 8,
-        font,
-        color: rgb(0.5, 0.5, 0.5)
+        x: 50, y: 50, size: 8, font, color: rgb(0.5, 0.5, 0.5)
     });
 
     return await pdfDoc.save();
 }
 
-// 3. RUTAS API
+// 3. RUTAS API (CON LINTERNAS DE ERRORES)
 app.post('/api/preinscripcion', (req, res) => {
     const formData = req.body;
 
-    // Validación duplicados
     db.query('SELECT id FROM aspirantes WHERE correo = ? OR curp = ?', [formData.correo, formData.curp], (err, results) => {
+        if (err) {
+            console.error("🔥 ERROR EN SELECT DB:", err);
+            return res.status(500).json({ message: 'Error de conexión.' });
+        }
         if (results && results.length > 0) return res.status(409).json({ message: 'Correo o CURP ya registrados.' });
 
         const sql = `INSERT INTO aspirantes (correo, curp, nombre, apellidoPaterno, apellidoMaterno, genero, fechaNacimiento, carrera, calle, numeroExterior, numeroInterior, colonia, municipio, codigoPostal, estado, telefono, promedio, tipoSecundaria, sostenimiento, localidadSecundaria, nombreSecundaria, nombreTutor, ocupacionTutor, telefonoTutor) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`;
         const values = [formData.correo, formData.curp, formData.nombre, formData.apellidoPaterno, formData.apellidoMaterno, formData.genero, formData.fechaNacimiento, formData.carrera, formData.calle, formData.numeroExterior, formData.numeroInterior, formData.colonia, formData.municipio, formData.codigoPostal, formData.estado, formData.telefono, formData.promedio, formData.tipoSecundaria, formData.sostenimiento, formData.localidadSecundaria, formData.nombreSecundaria, formData.nombreTutor, formData.ocupacionTutor, formData.telefonoTutor];
 
         db.query(sql, values, async (err, result) => {
-            if (err) return res.status(500).json({ message: 'Error al registrar.' });
+            if (err) {
+                console.error("🔥 ERROR AL INSERTAR EN DB:", err); // ¡Aquí estaba el error oculto!
+                return res.status(500).json({ message: 'Error al registrar.' });
+            }
             
             const fichaId = result.insertId;
             try {
@@ -142,12 +136,12 @@ app.post('/api/preinscripcion', (req, res) => {
                     from: process.env.EMAIL_USER,
                     to: formData.correo,
                     subject: `Ficha de Registro #${fichaId}`,
-                    html: `<p>Hola ${formData.nombre}, adjuntamos tu ficha.</p>`,
+                    html: `<p>Hola ${formData.nombre}, adjuntamos tu ficha de pre-registro.</p>`,
                     attachments: [{ filename: `ficha_${fichaId}.pdf`, content: Buffer.from(pdfBytes) }]
                 });
                 res.status(200).json({ message: 'Éxito', fichaId });
             } catch (e) {
-                console.error("🔥 ERROR REAL DEL BACKEND:", e);
+                console.error("🔥 ERROR EN CORREO O PDF:", e);
                 res.status(200).json({ message: 'Registrado, pero el correo falló.', fichaId });
             }
         });
@@ -157,10 +151,22 @@ app.post('/api/preinscripcion', (req, res) => {
 app.get('/api/generar-ficha/:fichaId', (req, res) => {
     const { fichaId } = req.params;
     db.query('SELECT * FROM aspirantes WHERE id = ?', [fichaId], async (err, results) => {
-        if (err || results.length === 0) return res.status(404).send('No encontrado');
-        const pdfBytes = await generarBytesPDF(results[0], fichaId);
-        res.setHeader('Content-Type', 'application/pdf');
-        res.send(Buffer.from(pdfBytes));
+        if (err) {
+            console.error("🔥 ERROR DB AL BUSCAR PDF:", err);
+            return res.status(500).send('Error interno del servidor');
+        }
+        if (results.length === 0) {
+            console.error("🔥 FICHA NO ENCONTRADA, ID:", fichaId);
+            return res.status(404).send('No encontrado');
+        }
+        try {
+            const pdfBytes = await generarBytesPDF(results[0], fichaId);
+            res.setHeader('Content-Type', 'application/pdf');
+            res.send(Buffer.from(pdfBytes));
+        } catch (e) {
+            console.error("🔥 ERROR GENERANDO ARCHIVO PDF:", e);
+            res.status(500).send('Error generando PDF');
+        }
     });
 });
 
