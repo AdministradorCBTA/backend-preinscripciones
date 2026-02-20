@@ -20,17 +20,25 @@ app.use(cors({
 }));
 app.use(express.json());
 
-// 1. CONEXIÓN DB
-const db = mysql.createConnection({
+// 1. CONEXIÓN DB (CON POOL DE CONEXIONES)
+const db = mysql.createPool({
     host: process.env.DB_HOST || 'localhost',
     user: process.env.DB_USER || 'root',
     password: process.env.DB_PASSWORD || '',
-    database: process.env.DB_NAME || 'preinscripcion_db'
+    database: process.env.DB_NAME || 'preinscripcion_db',
+    waitForConnections: true,
+    connectionLimit: 10, // Crea hasta 10 conexiones simultáneas si hay mucha gente
+    queueLimit: 0
 });
 
-db.connect(err => {
-    if (err) return console.error('Error DB:', err);
-    console.log('Conectado a MySQL.');
+// Para comprobar que el pool funciona al arrancar
+db.getConnection((err, connection) => {
+    if (err) {
+        console.error('🔥 Error al conectar al Pool DB:', err);
+    } else {
+        console.log('✅ Conectado exitosamente al Pool de MySQL.');
+        connection.release(); // Soltamos la conexión para que quede libre
+    }
 });
 
 // 2. TRANSPORTE CORREO (CORREGIDO Y OPTIMIZADO)
