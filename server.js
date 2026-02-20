@@ -147,6 +147,7 @@ app.post('/api/preinscripcion', (req, res) => {
                 });
                 res.status(200).json({ message: 'Éxito', fichaId });
             } catch (e) {
+                console.error("🔥 ERROR REAL DEL BACKEND:", e);
                 res.status(200).json({ message: 'Registrado, pero el correo falló.', fichaId });
             }
         });
