@@ -56,14 +56,19 @@ async function generarBytesPDF(data, id) {
     // --- LOGO ---
     try {
         const logoUrl = 'https://cbta228.edu.mx/imagenes/logo-cbta-grande.png';
-        const logoResponse = await fetch(logoUrl);
+       const logoResponse = await fetch(logoUrl);
         const logoImageBytes = await logoResponse.arrayBuffer();
         const logoImage = await pdfDoc.embedPng(logoImageBytes);
         
         const logoDims = logoImage.scale(0.5); 
+        
+        // 🔴 CORRECCIÓN AQUÍ: Calculamos la Y para que la imagen baje desde el tope
+        // Posición Y = Altura Página (792) - Altura de la imagen escalada - Margen superior deseado (ej. 40)
+        const logoYPosition = 792 - logoDims.height - 40;
+
         page.drawImage(logoImage, {
             x: 50,
-            y: 792 - 100, 
+            y: logoYPosition, // Usamos la nueva posición calculada
             width: logoDims.width,
             height: logoDims.height,
         });
