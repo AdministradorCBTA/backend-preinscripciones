@@ -127,6 +127,10 @@ async function generarBytesPDF(data, id) {
 }
 
 // 3. RUTAS API (LIMPIAS, SIN CORREO)
+// Ruta exclusiva para mantener despierto el servidor (Cronjob)
+app.get('/api/ping', (req, res) => {
+    res.status(200).send('¡Servidor despierto y listo! 🚀');
+});
 app.post('/api/preinscripcion', (req, res) => {
     const formData = req.body;
 
