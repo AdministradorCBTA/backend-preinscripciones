@@ -58,7 +58,7 @@ async function generarBytesPDF(data, id) {
     let logoImage = null;
     let logoDims = null;
     try {
-        const logoUrl = 'https://cbta228.edu.mx/imagenes/logo.png';
+        const logoUrl = 'https://cbta228.edu.mx/imagenes/logo-cbta-grande.png';
         const logoResponse = await fetch(logoUrl);
         const logoImageBytes = await logoResponse.arrayBuffer();
         logoImage = await pdfDoc.embedPng(logoImageBytes);
@@ -69,8 +69,19 @@ async function generarBytesPDF(data, id) {
 
     // --- FUNCIÓN PARA DIBUJAR UNA MITAD DE LA HOJA ---
     // Recibe "yTope" que es donde empieza la mitad (792 para arriba, 396 para abajo)
+    // Obtenemos la fecha y hora de emisión
+    const fechaHora = new Date().toLocaleString('es-MX', { timeZone: 'America/Mexico_City' });
     const dibujarMitad = (yTope) => {
         // 1. Logo
+        // --- FECHA Y HORA DE EMISIÓN ---
+        page.drawText(`Impreso: ${fechaHora}`, { 
+            x: 460,         // Alineado a la derecha
+            y: yTope - 15,  // Pegadito al borde superior (no estorba al logo)
+            size: 8, 
+            font: font, 
+            color: gris 
+        });
+        
         if (logoImage && logoDims) {
             const logoYPosition = yTope - logoDims.height - 30; // Margen de 30 desde el tope
             page.drawImage(logoImage, {
