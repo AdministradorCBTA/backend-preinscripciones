@@ -38,89 +38,124 @@ db.getConnection((err, connection) => {
     }
 });
 
-// 2. FUNCIÓN AUXILIAR PDF (¡VERSIÓN ULTRA RÁPIDA Y OPTIMIZADA! ⚡)
+// 2. FUNCIÓN AUXILIAR PDF (VERSIÓN DOBLE MITAD CON FOTO ✂️📸)
 async function generarBytesPDF(data, id) {
     const pdfDoc = await PDFDocument.create();
-    const page = pdfDoc.addPage([612, 792]); // Tamaño Carta
+    const page = pdfDoc.addPage([612, 792]); // Tamaño Carta: Ancho 612, Alto 792
     
     const font = await pdfDoc.embedFont(StandardFonts.Helvetica);
     const boldFont = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
     
     const headerColor = rgb(0.1, 0.3, 0.18); // Verde oscuro institucional
+    const gris = rgb(0.4, 0.4, 0.4);
 
     // --- VARIABLES DEL ALUMNO ---
     const folio = String(id || "N/A");
     const nombreCompleto = `${data.nombre} ${data.apellidoPaterno} ${data.apellidoMaterno}`.toUpperCase();
     const telefono = String(data.telefono || "N/A");
 
-    // --- LOGO ---
+    // --- CARGAR LOGO ---
+    let logoImage = null;
+    let logoDims = null;
     try {
-        const logoUrl = 'https://cbta228.edu.mx/imagenes/logo-cbta-grande.png';
-       const logoResponse = await fetch(logoUrl);
+        const logoUrl = 'https://cbta228.edu.mx/imagenes/logo.png';
+        const logoResponse = await fetch(logoUrl);
         const logoImageBytes = await logoResponse.arrayBuffer();
-        const logoImage = await pdfDoc.embedPng(logoImageBytes);
-        
-        const logoDims = logoImage.scale(0.5); 
-        
-        // 🔴 CORRECCIÓN AQUÍ: Calculamos la Y para que la imagen baje desde el tope
-        // Posición Y = Altura Página (792) - Altura de la imagen escalada - Margen superior deseado (ej. 40)
-        const logoYPosition = 792 - logoDims.height - 40;
-
-        page.drawImage(logoImage, {
-            x: 50,
-            y: logoYPosition, // Usamos la nueva posición calculada
-            width: logoDims.width,
-            height: logoDims.height,
-        });
+        logoImage = await pdfDoc.embedPng(logoImageBytes);
+        logoDims = logoImage.scale(0.4); // Un poco más pequeño para que quepa perfecto en la mitad
     } catch (error) {
         console.error("🔥 No se pudo cargar el logo en el PDF:", error);
     }
 
-    // --- ENCABEZADOS ---
-    page.drawText('FICHA DE PRE INSCRIPCIÓN', { 
-        x: 200, y: 730, size: 20, font: boldFont, color: headerColor 
-    });
-    page.drawText('CICLO ESCOLAR 2026-2027', { 
-        x: 230, y: 700, size: 14, font: boldFont, color: rgb(0.3, 0.3, 0.3) 
-    });
+    // --- FUNCIÓN PARA DIBUJAR UNA MITAD DE LA HOJA ---
+    // Recibe "yTope" que es donde empieza la mitad (792 para arriba, 396 para abajo)
+    const dibujarMitad = (yTope) => {
+        // 1. Logo
+        if (logoImage && logoDims) {
+            const logoYPosition = yTope - logoDims.height - 30; // Margen de 30 desde el tope
+            page.drawImage(logoImage, {
+                x: 40,
+                y: logoYPosition,
+                width: logoDims.width,
+                height: logoDims.height,
+            });
+        }
 
-    // --- DATOS DEL ASPIRANTE ---
-    const startY = 620;
-    page.drawText(`No. de Ficha:`, { x: 50, y: startY, size: 14, font: boldFont, color: rgb(0.7, 0.1, 0.1) });
-    page.drawText(folio, { x: 145, y: startY, size: 14, font: boldFont });
+        // 2. Títulos
+        page.drawText('FICHA DE PRE INSCRIPCIÓN', { x: 190, y: yTope - 50, size: 16, font: boldFont, color: headerColor });
+        page.drawText('CICLO ESCOLAR 2026-2027', { x: 215, y: yTope - 70, size: 12, font: boldFont, color: rgb(0.3, 0.3, 0.3) });
 
-    page.drawText(`Nombre del Aspirante:`, { x: 50, y: startY - 30, size: 12, font: boldFont });
-    page.drawText(nombreCompleto, { x: 195, y: startY - 30, size: 12, font: font });
-
-    page.drawText(`Teléfono:`, { x: 50, y: startY - 60, size: 12, font: boldFont });
-    page.drawText(telefono, { x: 115, y: startY - 60, size: 12, font: font });
-
-    // --- LÍNEA SEPARADORA ---
-    page.drawLine({
-        start: { x: 50, y: startY - 90 },
-        end: { x: 562, y: startY - 90 },
-        thickness: 1,
-        color: rgb(0.8, 0.8, 0.8),
-    });
-
-    // --- REQUISITOS (TEXTO FIJO) ---
-    const reqY = startY - 130;
-    page.drawText('Documentos que deberás presentar en el plantel junto con esta ficha:', { 
-        x: 50, y: reqY, size: 12, font: boldFont 
-    });
-    
-    const requisitos = [
-        "- Constancia con promedio",
-        "- CURP Verificada",
-        "- Copia de Acta de Nacimiento",
-        "- 2 fotos",
-        "- Pago"
-    ];
-
-    requisitos.forEach((req, index) => {
-        page.drawText(req, { 
-            x: 70, y: reqY - 25 - (index * 20), size: 12, font: font 
+        // 3. Recuadro para Foto Tamaño Infantil (Aprox 2.5 x 3 cm -> 71 x 85 puntos)
+        const fotoWidth = 75;
+        const fotoHeight = 90;
+        const fotoX = 612 - 40 - fotoWidth; // Alineado a la derecha
+        const fotoY = yTope - 30 - fotoHeight;
+        
+        page.drawRectangle({
+            x: fotoX, y: fotoY, width: fotoWidth, height: fotoHeight,
+            borderColor: gris, borderWidth: 1,
         });
+        // Textito centrado dentro del recuadro
+        page.drawText('FOTO', { x: fotoX + 22, y: fotoY + 40, size: 10, font: boldFont, color: gris });
+        page.drawText('Tamaño', { x: fotoX + 18, y: fotoY + 28, size: 8, font: font, color: gris });
+        page.drawText('Infantil', { x: fotoX + 19, y: fotoY + 18, size: 8, font: font, color: gris });
+
+        // 4. Datos del Aspirante
+        const startY = yTope - 130;
+        page.drawText(`No. de Ficha:`, { x: 40, y: startY, size: 12, font: boldFont, color: rgb(0.7, 0.1, 0.1) });
+        page.drawText(folio, { x: 120, y: startY, size: 12, font: boldFont });
+
+        page.drawText(`Nombre del Aspirante:`, { x: 40, y: startY - 25, size: 11, font: boldFont });
+        page.drawText(nombreCompleto, { x: 175, y: startY - 25, size: 11, font: font });
+
+        page.drawText(`Teléfono:`, { x: 40, y: startY - 50, size: 11, font: boldFont });
+        page.drawText(telefono, { x: 100, y: startY - 50, size: 11, font: font });
+
+        // 5. Línea separadora de sección
+        page.drawLine({
+            start: { x: 40, y: startY - 70 },
+            end: { x: 572, y: startY - 70 },
+            thickness: 1,
+            color: rgb(0.8, 0.8, 0.8),
+        });
+
+        // 6. Textos fijos (Requisitos)
+        const reqY = startY - 95;
+        page.drawText('Documentos que deberás presentar en el plantel junto con esta ficha:', { 
+            x: 40, y: reqY, size: 11, font: boldFont 
+        });
+        
+        const requisitos = [
+            "- Constancia con promedio",
+            "- CURP Verificada",
+            "- Copia de Acta de Nacimiento",
+            "- 2 fotos",
+            "- Pago"
+        ];
+
+        requisitos.forEach((req, index) => {
+            page.drawText(req, { 
+                x: 60, y: reqY - 20 - (index * 15), size: 11, font: font 
+            });
+        });
+    };
+
+    // --- ¡LA MAGIA! MANDAMOS A DIBUJAR AMBAS MITADES ---
+    dibujarMitad(792); // Dibuja de la mitad para arriba
+    dibujarMitad(396); // Dibuja de la mitad para abajo
+
+    // --- LÍNEA PUNTEADA PARA RECORTAR (EN MEDIO EXACTO: Y=396) ---
+    page.drawLine({
+        start: { x: 0, y: 396 },
+        end: { x: 612, y: 396 },
+        thickness: 1,
+        color: gris,
+        dashArray: [5, 5], // Esto hace que la línea sea punteada (5pts línea, 5pts espacio)
+    });
+
+    // Un textito sutil para las tijeras
+    page.drawText('✂️ ------------------------------------------------ RECORTAR AQUÍ ------------------------------------------------ ✂️', { 
+        x: 60, y: 393, size: 8, font: font, color: gris 
     });
 
     return await pdfDoc.save();
