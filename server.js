@@ -53,6 +53,7 @@ async function generarBytesPDF(data, id) {
     const folio = String(id || "N/A");
     const nombreCompleto = `${data.nombre} ${data.apellidoPaterno} ${data.apellidoMaterno}`.toUpperCase();
     const telefono = String(data.telefono || "N/A");
+    const carrera = String(data.carrera || "N/A").toUpperCase();
 
     // --- CARGAR LOGO ---
     let logoImage = null;
@@ -62,7 +63,7 @@ async function generarBytesPDF(data, id) {
         const logoResponse = await fetch(logoUrl);
         const logoImageBytes = await logoResponse.arrayBuffer();
         logoImage = await pdfDoc.embedPng(logoImageBytes);
-        logoDims = logoImage.scale(0.4); // Un poco más pequeño para que quepa perfecto en la mitad
+        logoDims = logoImage.scale(0.3); // Un poco más pequeño para que quepa perfecto en la mitad
     } catch (error) {
         console.error("🔥 No se pudo cargar el logo en el PDF:", error);
     }
@@ -81,7 +82,7 @@ async function generarBytesPDF(data, id) {
             font: font, 
             color: gris 
         });
-        
+
         if (logoImage && logoDims) {
             const logoYPosition = yTope - logoDims.height - 30; // Margen de 30 desde el tope
             page.drawImage(logoImage, {
@@ -122,16 +123,20 @@ async function generarBytesPDF(data, id) {
         page.drawText(`Teléfono:`, { x: 40, y: startY - 50, size: 11, font: boldFont });
         page.drawText(telefono, { x: 100, y: startY - 50, size: 11, font: font });
 
-        // 5. Línea separadora de sección
+        // --- NUEVO CAMPO: CARRERA ---
+        page.drawText(`Carrera de Interés:`, { x: 40, y: startY - 75, size: 11, font: boldFont });
+        page.drawText(carrera, { x: 155, y: startY - 75, size: 11, font: font });
+
+        // 5. Línea separadora de sección (La bajamos de -70 a -95)
         page.drawLine({
-            start: { x: 40, y: startY - 70 },
-            end: { x: 572, y: startY - 70 },
+            start: { x: 40, y: startY - 95 },
+            end: { x: 572, y: startY - 95 },
             thickness: 1,
             color: rgb(0.8, 0.8, 0.8),
         });
 
-        // 6. Textos fijos (Requisitos)
-        const reqY = startY - 95;
+        // 6. Textos fijos (Requisitos) (Los bajamos de -95 a -120)
+        const reqY = startY - 120;
         page.drawText('Documentos que deberás presentar en el plantel junto con esta ficha:', { 
             x: 40, y: reqY, size: 11, font: boldFont 
         });
