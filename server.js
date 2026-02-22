@@ -153,9 +153,9 @@ async function generarBytesPDF(data, id) {
         dashArray: [5, 5], // Esto hace que la línea sea punteada (5pts línea, 5pts espacio)
     });
 
-    // Un textito sutil para las tijeras
-    page.drawText('✂️ ------------------------------------------------ RECORTAR AQUÍ ------------------------------------------------ ✂️', { 
-        x: 60, y: 393, size: 8, font: font, color: gris 
+   // Un textito sutil para el recorte (SIN emojis)
+    page.drawText('-------------------------------------------------- RECORTAR AQUÍ --------------------------------------------------', { 
+        x: 75, y: 393, size: 8, font: font, color: gris 
     });
 
     return await pdfDoc.save();
