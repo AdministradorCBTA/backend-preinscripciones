@@ -3,6 +3,8 @@ const express = require('express');
 const cors = require('cors');
 const mysql = require('mysql2');
 const { PDFDocument, rgb, StandardFonts } = require('pdf-lib');
+const fs = require('fs');
+const path = require('path');
 
 const app = express();
 
@@ -55,18 +57,19 @@ async function generarBytesPDF(data, id) {
     const telefono = String(data.telefono || "N/A");
     const carrera = String(data.carrera || "N/A").toUpperCase();
 
-    // --- CARGAR LOGO ---
-    let logoImage = null;
-    let logoDims = null;
-    try {
-        const logoUrl = 'https://cbta228.edu.mx/imagenes/logo-cbta-grande.png';
-        const logoResponse = await fetch(logoUrl);
-        const logoImageBytes = await logoResponse.arrayBuffer();
-        logoImage = await pdfDoc.embedPng(logoImageBytes);
-        logoDims = logoImage.scale(0.3); // Un poco más pequeño para que quepa perfecto en la mitad
-    } catch (error) {
-        console.error("🔥 No se pudo cargar el logo en el PDF:", error);
-    }
+    /// --- CARGAR LOGO LOCALMENTE ---
+let logoImage = null;
+let logoDims = null;
+try {
+    // Busca el archivo directamente en la carpeta del backend
+    const logoPath = path.join(__dirname, 'logo-cbta-grande.png');
+    const logoImageBytes = fs.readFileSync(logoPath);
+    
+    logoImage = await pdfDoc.embedPng(logoImageBytes);
+    logoDims = logoImage.scale(0.3);
+} catch (error) {
+    console.error("🔥 No se pudo cargar el logo local en el PDF:", error);
+}
 
     // --- FUNCIÓN PARA DIBUJAR UNA MITAD DE LA HOJA ---
     // Recibe "yTope" que es donde empieza la mitad (792 para arriba, 396 para abajo)
